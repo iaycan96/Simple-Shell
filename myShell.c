@@ -12,8 +12,23 @@
 in the next command line; separate it into distinct arguments (using blanks as
 delimiters), and set the args array entries to point to the beginning of what
 will become null-terminated, C-style strings. */
+
+
+
+
 int count_command;
+
 int getlocation(char *path[20],char*command);
+int redirectCheck(char*args[]);
+int appendCheck(char* args[]);
+int stderrCheck(char*args[]);
+int revredirect(char*args[]);
+int inoutredirectCheck(char*args[]);
+void redirect(char * args[],char*path[20]);
+
+
+
+
 void setup(char inputBuffer[], char *args[],int *background)
 {
     int length, /* # of characters in the command line */
@@ -45,7 +60,8 @@ void setup(char inputBuffer[], char *args[],int *background)
 	exit(-1);           /* terminate with error code of -1 */
     }
 
-	printf(">>%s<<",inputBuffer);
+	//
+	// printf(">>%s<<",inputBuffer);
     for (i=0;i<length;i++){ /* examine every character in the inputBuffer */
 
         switch (inputBuffer[i]){
@@ -73,23 +89,13 @@ void setup(char inputBuffer[], char *args[],int *background)
 		    start = i;
                 if (inputBuffer[i] == '&'){
 		        *background  = 1;
-                    inputBuffer[i-1] = '\0';
+		        inputBuffer[i-1] = '\0';
 		}
 	} /* end of switch */
     }    /* end of for */
     args[ct] = NULL; /* just in case the input line was > 80 */
     count_command=ct;
-    printf("arguman sayısı =%d\n",count_command);
-
-	for (i = 0; i <= ct; i++){
-
-         /* if(!(strcmp(args[i],"&") && args[i+1]==NULL) {
-         printf("bu ampersant");
-
-
-          }*/
-            printf("args %d = %s\n",i,args[i]);
-	}
+ //   printf("arguman sayısı =%d\n",count_command);
 
 } /* end of setup routine */
  
@@ -103,6 +109,7 @@ int main(void)
     char * found;
     char *pathArr[20];
     char*set_to;
+    char*aliasholder[30];
 
 
     char* allPath=getenv("PATH");;
@@ -110,37 +117,43 @@ int main(void)
     i=0;
     j=0;
     k=0;
- //   printf("%s\n",allPath);
     char s[1]=":";
     char*token;
     token=strtok(allPath,s);
-
     while( token != NULL ) {
 
-      //  printf( " %s\n", token );
         pathArr[i]=token;
         i++;
         token = strtok(NULL, s);
     }
-
     int abc;
-    abc=getlocation(pathArr,"sort");
+
 
     //-----------------------------------------------
 
     while (1) {
 
-        int commandChecker = 0, redirectChecker = 0, appendChecker = 0, stderrChecker = 0, fileNumber = 0;
+       // perror("error burda ");
+        jump:
         background = 0;
         printf("myshell: ");
         fflush(stdout);
 
+
         /*setup() calls exit() when Control-D is entered */
         setup(inputBuffer, args, &background);
 
-        printf("%d\n",background);
+       // printf("%d,%d,%d,%d,%d",redirectCheck(args),appendCheck(args),revredirect(args),stderrCheck(args),inoutredirectCheck(args));
 
-        if (!strcmp(args[0], "clr")) {
+
+        if(args[0]==NULL){
+            continue;
+        }
+        if(!strcmp(args[count_command-1],"&")) {
+            args[count_command - 1] = NULL;
+        }
+        //----------------------------------------
+        if (!strcmp(args[0], "clr")&&args[1]==NULL) {
             if (fork() != 0) {
                 wait(NULL);
 
@@ -154,21 +167,12 @@ int main(void)
 
 
         //------------------------ALIAS-------------------------------
-        if (strcmp(args[0],"alias")==0){
-         //   strcpy(args[count_command])
+        else if (strcmp(args[0],"alias")==0){
+
 
 
 
         }
-
-
-
-
-
-
-
-
-
 
         //-----------------------------------------------------------
         else if (!strcmp(args[0], "exit")) {
@@ -179,59 +183,33 @@ int main(void)
             break;
         }
         else {
-            /*for (i = 0; args[i] != NULL; i++)
-            {
-                if (!strcmp(args[i], ">") || !strcmp(args[i], ">>") || !strcmp(args[i], "2>"))
-                {
-                    if (args[i + 1] == NULL)
-                    {
-                        fprintf(stderr, "\nWrong input!");
-                        continue;
-                    }
-                    args[i + 2] = NULL;
-                    redirectChecker = 1;
-                    fileNumber = i + 1;
-                    if (!strcmp(args[i], ">>"))
-                    {
-                        appendChecker = 1;
-                    }
-                    else if (!strcmp(args[i], "2>"))
-                    {
-                        stderrChecker = 1;
-                    }
+            if(redirectCheck(args)==1||appendCheck(args)==1||stderrCheck(args)==1|inoutredirectCheck(args)==1||revredirect(args)==1){
+                 redirect(args,pathArr);
+            }
+            else {
+
+                abc=getlocation(pathArr,args[0]);
+               childpid=fork();
+               if (childpid<0) {
+                   perror("Failed to fork");
+               }
+               else if(childpid==0) {
+                   strcpy(temp_path,pathArr[abc]);
+
+                   strcat(temp_path,"/");
+                   strcat(temp_path, args[0]);
+                   execl(temp_path, args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10], NULL);
+                   perror("\nWrong argument ");
+                   break;
+               }
+
+
+
+                if(!background&&childpid>0){
+                    while(wait(NULL)>0);
                 }
+
             }
-            printf("> var:%d,")*/
-
-
-
-
-
-
-
-
-
-
-            // (1) fork a child process using fork()
-            abc=getlocation(pathArr,args[0]);
-           // printf("%s",pathArr[abc]);
-
-           if (fork() != 0) {
-           //    wait(NULL);
-           } else {
-               strcpy(temp_path,pathArr[abc]);
-               strcat(temp_path,"/");
-               strcat(temp_path, args[0]);
-               execl(temp_path, args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10], NULL);
-               perror("\nWrong argument ");
-               exit(0);
-           }
-
-
-            if(background==0){
-                wait(NULL);
-            }
-
         }
 
     }
@@ -239,6 +217,8 @@ int main(void)
 						//(3) if background == 0, the parent will wait,
                         //otherwise it will invoke the setup() function again. */
 }
+
+
 
 int getlocation(char *path[20],char*command){
     FILE *fptr;
@@ -262,7 +242,6 @@ int getlocation(char *path[20],char*command){
 
         strcat(filepath,"/");
         strcat(filepath,command);
-        //printf("%d:%s",i,filepath);
         fptr = fopen(filepath,"r");
         if(fptr != NULL)
         {
@@ -280,3 +259,195 @@ int getlocation(char *path[20],char*command){
 
     return -1;
 }
+int redirectCheck(char*args[]){
+    int j=0;
+    while(args[j]!=NULL){
+        if (!strcmp(args[j],">")) {
+            if(args[j+1]==NULL){
+                perror("Wrong argument");
+                return -1;
+            }
+            else {
+                if(args[j+2]!=NULL){
+                    perror("Wrong :D argument");
+                    return -1;
+                }
+                else
+                    return 1;
+
+            }
+        }
+        j++;
+    }
+
+    return 0;
+
+}
+int appendCheck(char* args[]){
+    int j=0;
+    while(args[j]!=NULL){
+        if (!strcmp(args[j],">>")) {
+            if(args[j+1]==NULL){
+                perror("Wrong argument");
+                return -1;
+            }
+            else {
+                if(args[j+2]!=NULL){
+                    perror("Wrong :D argument");
+                    return -1;
+                }
+                else
+                    return 1;
+            }
+        }
+        j++;
+    }
+
+    return 0;
+}
+int stderrCheck(char*args[]){
+    int j=0;
+    while(args[j]!=NULL){
+        if (!strcmp(args[j],"2>")) {
+            if(args[j+1]==NULL){
+                perror("Wrong argument");
+                return -1;
+            }
+            else {
+                if(args[j+2]!=NULL){
+                    perror("Wrong :D argument");
+                    return -1;
+                }
+                else
+                    return 1;
+            }
+        }
+        j++;
+    }
+
+    return 0;
+
+}
+int revredirect(char*args[]){
+    int j=0;
+    //perror("error :D");
+
+    while(args[j]!=NULL){
+        if (!strcmp(args[j],"<")) {
+            if(args[j+1]==NULL){
+                perror("Wrong argument");
+                return -1;
+            }
+            else {
+                if(args[j+2]!=NULL){
+                    perror("Wrong :D argument");
+                    return -1;
+                }
+                else
+                    return 1;
+            }
+        }
+        j++;
+    }
+    return 0;
+}
+int inoutredirectCheck(char*args[]){
+    int j=0;
+    while(args[j]!=NULL){
+        if (!strcmp(args[j],"<")) {
+            if(args[j+2]==NULL){
+                break;
+            }
+
+            if(args[j+1]!=NULL){
+                if(!strcmp(args[j+2],">")){
+                    if(args[j+3]!=NULL){
+                        return 1;
+
+                    }
+                    perror("Wrong argument");
+                    return -1;
+                }
+                else
+                    return 0;
+            }
+            else {
+                perror("Wrong argument");
+                return -1;
+
+
+            }
+        }
+        j++;
+    }
+    return 0;
+}
+void redirect(char * args[],char*path[20]) {
+
+    pid_t childpid;
+    char * command[100];
+    char * inputf;
+    char * outputf;
+    int fd;
+    int abc;
+    char temp_path[128];
+
+    int k =0;
+    while (args[k]){
+        if ((!strcmp(args[k],">")) ||(!strcmp(args[k],">>")) || (!strcmp(args[k],"2>")) || (!strcmp(args[k],"<")) || (!strcmp(args[k],"&"))){
+
+            break;
+        }
+        command[k] = args[k];
+        printf(":%s",command[k]);
+        k++;
+
+    }
+
+    abc=getlocation(path,command[0]);
+
+    strcpy(temp_path,path[abc]);
+    strcat(temp_path,"/");
+    strcat(temp_path, command[0]);
+
+
+
+    printf("%s",temp_path);
+
+
+
+    childpid=fork();
+
+    if (childpid==0) {
+        if (inoutredirectCheck(args)) {
+            inputf = args[k + 1];
+            outputf = args[k + 3];
+            //printf("%s,%s",inputf,outputf);
+            //perror("inout");
+
+
+        } else if (revredirect(args)) {
+
+            perror("revredir");
+        } else if (redirectCheck(args)) {
+
+
+            outputf = args[k + 1];
+            fd = open(outputf, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+
+            //perror("redir");
+        } else if (appendCheck(args)) {
+            perror("append");
+        } else if (stderrCheck(args)) {
+            perror("stderr");
+        }
+        printf("%s",command[0]);
+        execl("/bin/ls","ls",NULL);
+        execl(temp_path,command[0],command[1], NULL);
+
+    }
+
+}
+
