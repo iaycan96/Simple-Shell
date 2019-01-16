@@ -8,7 +8,6 @@
     #include <string.h>
     #include <fcntl.h>
     #define MAX_LINE 80 /* 80 chars per line, per command, should be enough. */
-    #define MAX_PRESSES 1
     struct node
     {
         char str[50];
@@ -25,10 +24,8 @@
     typedef struct node_bg node_bg;
     node_bg *bg_list;
 
-    static int pressCount = 0;
-
     void setup(char inputBuffer[], char *args[],int *background);
-
+    void bg_2_fg(node_bg**list);
     void print_bg(node_bg **list);
     void insert_bg(node_bg** head_ref, int new_data);
     int checknode(node**list,char*key);
@@ -60,7 +57,7 @@
 
         char* allPath=getenv("PATH");;      //finds all pathes
         int i,j,k;
-
+        int controller;
         int checkbg;
         i=0;
         j=0;
@@ -79,6 +76,7 @@
         }
 
 
+
         //-----------------------------------------------
 
         while (1) {
@@ -88,7 +86,6 @@
             printf("myshell: ");
             fflush(stdout);
 
-            controller=0;
 
 
             /*setup() calls exit() when Control-D is entered */
@@ -102,7 +99,6 @@
             if(!strcmp(args[count_command-1],"&")) {        //deletes &
                 args[count_command - 1] = NULL;
             }
-
 
 ///For clear operation
             if (!strcmp(args[0], "clr")&&args[1]==NULL) {
@@ -135,7 +131,7 @@
             }
 
             else if(!strcmp(args[0],"fg")&&args[1]==NULL){//makes all background process tp background
-
+                bg_2_fg(&bg_list);
             }
 
 
@@ -163,11 +159,12 @@
 
                        strcat(temp_path,"/");
                        strcat(temp_path, args[0]);
-
-                       execl(temp_path, args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10],args[11],args[12],args[13],args[14],args[15],args[16],args[17],args[18],args[19],args[20],args[21],args[22],args[23],args[24], NULL);
-                       perror("\nWrong argument ");
-                       break;
-
+                       while (pressCount < MAX_PRESSES){//when executing command if ctrl+z was pressed,
+                                                        //execution stops
+                           execl(temp_path, args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10],args[11],args[12],args[13],args[14],args[15],args[16],args[17],args[18],args[19],args[20],args[21],args[22],args[23],args[24], NULL);
+                           perror("\nWrong argument ");
+                           break;
+                       }
                    }
 
                     else{
@@ -270,7 +267,6 @@
 
         return 0;
     }
-
     int stderrCheck(char*args[]){// checks standart error redirection
         int j=0;
         while(args[j]!=NULL){
@@ -580,7 +576,52 @@
         printf("\n");		//prints the number of  common words adn 2-grams
 
     }
+    int doalias(node ** list,char*command,char*path[20]){//runs alias command
+        pid_t childpid;
+        node*p;
+        char temp_path[128];
+        int abc;
+      //  abc=getlocation(path,"ls");
 
+        p=*list;
+        while (p!=NULL){
+            if(!strcmp(p->str,command)){
+                abc=getlocation(path,p->args[0]);
+                if(abc==-1){
+                    perror("Wrong command");
+                    return -1;
+
+                }
+
+                childpid=fork();
+                if (childpid<0) {
+
+                    perror("Failed to fork");
+                }
+                else if(childpid==0) {
+                    strcpy(temp_path,path[abc]);
+
+                    strcat(temp_path,"/");
+                    strcat(temp_path, p->args[0]);
+                    execl(temp_path, p->args[0],p->args[1],p->args[2],p->args[3],p->args[4],p->args[5],p->args[6],p->args[7],p->args[8],p->args[9],p->args[10],p->args[11],p->args[12],p->args[13],p->args[14],p->args[15],p->args[16],p->args[17],NULL);
+                    perror("\nWrong command ");
+                    break;
+
+                }
+                else {
+                    waitpid(childpid,NULL,0);
+                    return 1;
+                }
+
+
+
+            }
+            p=p->next;
+
+        }
+        return 0;
+
+    }
     void deleteNode(node **head_ref, char* key){ //Deletes a build in command in alias list
         // Store head node
         node *temp = *head_ref, *prev;
@@ -648,6 +689,16 @@
         }
         printf("\n");		//prints the number of  common words adn 2-grams
 
+    }
+    void bg_2_fg(node_bg**list){  //turns background process into foreground
+        node_bg*p;
+        p=*list;
+        while (p!=NULL){
+            waitpid(p->pid,NULL,0);
+            kill(p->pid,SIGKILL);
+            pressCount=0;
+            p=p->next;
+        }
     }
     void setup(char inputBuffer[], char *args[],int *background){
         int length, /* # of characters in the command line */
