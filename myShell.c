@@ -8,7 +8,7 @@
     #include <string.h>
     #include <fcntl.h>
     #define MAX_LINE 80 /* 80 chars per line, per command, should be enough. */
-
+    #define MAX_PRESSES 1
     struct node
     {
         char str[50];
@@ -25,6 +25,8 @@
     typedef struct node_bg node_bg;
     node_bg *bg_list;
 
+    static int pressCount = 0;
+    void catchCtrlZ(int signalNbr);
     void setup(char inputBuffer[], char *args[],int *background);
     void bg_2_fg(node_bg**list);
     void print_bg(node_bg **list);
@@ -55,6 +57,8 @@
         char * found;
         char *pathArr[20];
 
+        struct sigaction action;
+        int status;
 
         char* allPath=getenv("PATH");;      //finds all pathes
         int i,j,k;
@@ -76,6 +80,21 @@
             token = strtok(NULL, s);
         }
 
+        //signal definition
+        action.sa_handler = catchCtrlZ;
+        action.sa_flags = 0;
+        status = sigemptyset(&action.sa_mask);
+        if (status == -1)
+        {
+            perror("Failed to initialize signal set");
+            exit(1);
+        } // End if
+        status = sigaction(SIGTSTP, &action, NULL);
+        if (status == -1)
+        {
+            perror("Failed to set signal handler for SIGINT");
+            exit(1);
+        } // End if
 
         //-----------------------------------------------
 
@@ -92,6 +111,7 @@
             /*setup() calls exit() when Control-D is entered */
             setup(inputBuffer, args, &background);
 
+            pressCount=0;
 
             if(args[0]==NULL){      //if there is no argumant
                 continue;
@@ -202,10 +222,12 @@
 
                        strcat(temp_path,"/");
                        strcat(temp_path, args[0]);
-                       execl(temp_path, args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10],args[11],args[12],args[13],args[14],args[15],args[16],args[17],args[18],args[19],args[20],args[21],args[22],args[23],args[24], NULL);
-                       perror("\nWrong argument ");
-                       break;
-
+                       while (pressCount < MAX_PRESSES){//when executing command if ctrl+z was pressed,
+                                                        //execution stops
+                           execl(temp_path, args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9],args[10],args[11],args[12],args[13],args[14],args[15],args[16],args[17],args[18],args[19],args[20],args[21],args[22],args[23],args[24], NULL);
+                           perror("\nWrong argument ");
+                           break;
+                       }
                    }
 
                     else{
@@ -215,7 +237,9 @@
                         else{
                             insert_bg(&bg_list,childpid);
                         }
-           
+                        if(pressCount)
+                           kill(childpid,SIGKILL);//if execution stops with ctrl+z signal, parent kills child.
+
                     }
 
                 }
@@ -738,7 +762,7 @@
         while (p!=NULL){
             waitpid(p->pid,NULL,0);
             kill(p->pid,SIGKILL);
-     
+            pressCount=0;
             p=p->next;
         }
     }
@@ -810,4 +834,6 @@
         //   printf("arguman sayısı =%d\n",count_command);
 
     } /* end of setup routine */
-
+    void catchCtrlZ(int signalNbr){
+        pressCount++; // Global variable
+    }
